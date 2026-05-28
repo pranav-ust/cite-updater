@@ -1,0 +1,29 @@
+# OS / editor
+.DS_Store
+.vscode/
+.cursor/
+.idea/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.env
+
+# Heavy data
+*.pdf
+*.xml
+*.zip
+*.tar.*
+*.csv
+*.parquet
+data/
+validation_results/
+logs/
+*.log
+
+# Sensitive research — never commit
+research/
+deadname_*
