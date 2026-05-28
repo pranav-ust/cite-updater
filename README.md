@@ -75,9 +75,8 @@ pytest
 
 Planned work is tracked in [GitHub Issues](https://github.com/pranav-ust/cite-updater/issues).
 Headline items: arXiv source-bundle ingest (parse the author's original
-`references.bib` straight out of the `.tar.gz`), an `--apply` mode that
-rewrites entries with canonical values, and optional LLM-based categorisation
-for deadname / nickname / transliteration cases.
+`references.bib` straight out of the `.tar.gz`) and an `--apply` mode that
+rewrites entries with canonical values.
 
 ## License
 

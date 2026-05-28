@@ -89,4 +89,7 @@ Tracked in GitHub Issues. Highlights:
 - arXiv source-bundle ingest (parse the author's original `references.bib`/`.bbl`
   from the arXiv source tarball — stronger than any API).
 - `--apply` mode that rewrites suspect entries with canonical values.
-- Optional LLM categorisation (DEADNAME, NICKNAME, TRANSLITERATION).
+
+**Explicitly out of scope:** LLM-based categorisation. This package stays
+rule-based / LLM-free. The research repo (`cite--updater`, double dash) is
+where any LLM work lives.
