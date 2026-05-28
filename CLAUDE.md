@@ -36,6 +36,20 @@ src/cite_updater/
 tests/
   fixtures/sample.bib
   test_matchers.py   test_bib_io.py   test_compare.py   test_providers.py
+test_files/
+  neurips.bib        Combined 57-entry BibTeX file (NeurIPS 2023 papers from arXiv)
+  acl.bib            Combined 65-entry BibTeX file (ACL 2024 papers from arXiv)
+  neurips/*.bib      Same entries, one .bib per paper, named by arXiv id
+  acl/*.bib
+```
+
+`test_files/` is real-world input for the CLI — DBLP-titled NeurIPS/ACL papers
+matched to arXiv via fuzzy title search (≥85% Levenshtein), then serialized
+as `@misc{}` entries with `archivePrefix = {arXiv}`. Useful for end-to-end
+smoke runs:
+
+```bash
+cite-updater test_files/neurips.bib -o /tmp/neurips_annotated.bib -v
 ```
 
 ## Pipeline
