@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cite-updater"
+version = "0.1.0"
+description = "Check BibTeX entries against bibliographic APIs (arXiv, DBLP, OpenAlex, CrossRef, Semantic Scholar) and annotate suspect entries with the canonical source."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Pranav A" }]
+keywords = ["bibtex", "citations", "dblp", "openalex", "crossref", "arxiv"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Text Processing :: Markup :: LaTeX",
+]
+dependencies = [
+    "bibtexparser>=2.0.0b8",
+    "requests>=2.31",
+    "requests-cache>=1.2",
+    "rapidfuzz>=3.6",
+    "nameparser>=1.1",
+    "unidecode>=1.3",
+    "feedparser>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "responses>=0.25",
+    "ruff>=0.5",
+]
+
+[project.scripts]
+cite-updater = "cite_updater.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/pranav-ust/cite-updater"
+Issues = "https://github.com/pranav-ust/cite-updater/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
