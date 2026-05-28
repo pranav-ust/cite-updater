@@ -6,7 +6,7 @@ never modified — `cite-updater` writes a new file with `@comment` blocks
 attached to each suspect entry, pointing to the canonical DOI/URL so you can
 review and fix by hand.
 
-The lookup chain is **arXiv → DBLP → OpenAlex → CrossRef → Semantic Scholar**.
+The lookup chain is **DBLP → OpenAlex → CrossRef → arXiv → Semantic Scholar**.
 The first provider to return a confident match (title fuzzy ratio ≥ 0.85 and at
 least one author overlap) wins.
 

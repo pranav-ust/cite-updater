@@ -96,7 +96,7 @@ ALL_PROVIDERS: dict[str, type[Provider]] = {
     "semantic_scholar": SemanticScholarProvider,
 }
 
-DEFAULT_CHAIN = ["arxiv", "dblp", "openalex", "crossref", "semantic_scholar"]
+DEFAULT_CHAIN = ["dblp", "openalex", "crossref", "arxiv", "semantic_scholar"]
 
 
 def build_chain(names: list[str], session) -> list[Provider]:

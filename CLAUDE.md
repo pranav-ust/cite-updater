@@ -56,7 +56,7 @@ cite-updater test_files/neurips.bib -o /tmp/neurips_annotated.bib -v
 
 ```
 bib → parse → for each entry:
-                 chain: arxiv → dblp → openalex → crossref → semantic_scholar
+                 chain: dblp → openalex → crossref → arxiv → semantic_scholar
                  first confident match wins (title fuzz ≥ 0.85 AND ≥1 author overlap)
                  if no match → leave entry alone
                  if match → compare(entry, record) → list[Mismatch]
@@ -68,9 +68,12 @@ No LLM. No GPU. No DBLP XML dump. Just HTTP + string comparison.
 
 ## Conventions to preserve
 
-- **Provider chain order matters.** arXiv first because most ML/CS bibs are
-  arXiv-heavy and the arXiv API returns clean author lists. DBLP second as the
-  strongest published-venue check. Don't reorder casually.
+- **Provider chain order matters.** DBLP first as the strongest published-venue
+  check for ML/CS bibs; OpenAlex and CrossRef next for broader coverage and DOIs.
+  arXiv is fourth — it's frequently rate-limited (429s / read timeouts) and for
+  arXiv-sourced `.bib` entries it tends to echo the cited metadata back rather
+  than provide an independent canonical record. Semantic Scholar is the fallback.
+  Don't reorder casually.
 - **`is_confident_match` requires both title sim AND author overlap.** Title-only
   matches give false positives on conference-proceedings entries that share a
   template title. Don't relax to title-only.
@@ -96,12 +99,62 @@ The HTTP cache lives at `~/.cache/cite-updater/http.sqlite` (30-day TTL).
 `--no-cache` bypasses it. Tests use `responses` to mock HTTP — don't hit the
 real network in tests.
 
+## Wild-bib experiment (2026-05-28)
+
+To stress-test against real handwritten `.bib` files (the existing
+`test_files/{acl,neurips}/*.bib` are canonical-metadata round-trips from DBLP →
+arXiv, so cite-updater can't catch typos/accents/initials in them), 122 arXiv
+source tarballs were fetched via `scripts/fetch_arxiv_sources.py`. 110/122
+(90%) yielded a `.bib`, but the count is inflated by canonical dumps —
+`anthology.bib` (full ACL Anthology, ~46MB ×25 copies), `neurips_2023.bib`,
+`neurips_2022.bib`. After filtering those plus any `.bib >1MB` (safe ceiling
+for hand-written references), 101 papers / 105 files / **14,401 entries**
+remained. Per-paper output is in `data/arxiv_source_bibs/<arxiv-id>/` (gitignored).
+
+Two random-100 samples with `--no-cache` gave:
+
+| sample | OK | suspect | unmatched | dblp fails | s2 fails | arxiv fails |
+|--------|----|---------|-----------|------------|----------|-------------|
+| 1 (pre-backoff)  | 21 | 15 | 66 | 17 | 46 | 4  |
+| 2 (post-backoff) | 19 | 13 | 68 |  6 | 38 | 23 |
+
+DBLP adaptive backoff (`providers/dblp.py`) cut DBLP failures by ~3× —
+on `RequestException` it doubles `min_interval` (capped at 8s), sleeps 10s,
+retries once; on success it decays back toward 1.1s. The arXiv-failure spike
+in sample 2 is independent (arXiv 429s on the OAI endpoint).
+
+### Findings worth acting on
+
+- **`ArXiv` ↔ `CoRR` ↔ `arXiv (Cornell University)` ↔ `arXiv preprint arXiv:NNNN.NNNN`
+  is the single biggest false-positive source for `venue_mismatch`.** Roughly half
+  the venue_mismatches in both samples are just naming-convention differences
+  between cite-updater's input venue and what providers return. Add these as
+  equivalents in `compare.py:_VENUE_ABBREVIATIONS` (or strip the
+  `arXiv:1234.5678` suffix during normalization).
+- **Persistent false positive: `ouyang2022training` (InstructGPT) → OpenAlex
+  `W7133211372` / DOI `10.52202/068431-2011`** — appeared in both samples.
+  DBLP doesn't return a hit; OpenAlex returns an unrelated paper, and
+  `is_confident_match` accepts it. Worth tightening: either require both
+  title-similarity AND a minimum author-overlap *ratio* (not just ≥1), or
+  treat low-confidence OpenAlex hits as no-match.
+- **Most "unmatched" entries are legit, not a bug.** Spot-checking sample 2:
+  workshop papers, pre-2010 NLP references, niche math books (Bakry-Gentil-Ledoux
+  2014), and theses don't appear in DBLP/OpenAlex/CrossRef.
+- **Real catches that justify the tool:** `Katie Millican` → `Katherine Millican`,
+  `Ves Stoyanov` → `Veselin Stoyanov`, `Alex Nichol` → `Alexander Nichol`,
+  multiple entries citing the arXiv preprint when the paper actually appeared at
+  NeurIPS/ICLR/IJCAI.
+- **Year-off-by-1 may be too tight for preprint→camera-ready gaps of 2+ years
+  (e.g. Flan-T5: arXiv 2022, JMLR 2024).** Either widen the tolerance or
+  classify these as `venue_mismatch` instead.
+
 ## Open work
 
 Tracked in GitHub Issues. Highlights:
 
 - arXiv source-bundle ingest (parse the author's original `references.bib`/`.bbl`
-  from the arXiv source tarball — stronger than any API).
+  from the arXiv source tarball — stronger than any API). Prototype lives in
+  `scripts/fetch_arxiv_sources.py`; see above.
 - `--apply` mode that rewrites suspect entries with canonical values.
 
 **Explicitly out of scope:** LLM-based categorisation. This package stays
