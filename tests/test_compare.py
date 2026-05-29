@@ -50,16 +50,12 @@ def test_extra_wrong_author_flagged():
     assert "first_name_mismatch" in kinds
 
 
-def test_year_off_by_one_tolerated():
+def test_year_is_never_compared():
+    # Year differences are intentionally ignored (preprint/reprint drift).
     e = _entry(year=2017)
-    r = _record(year=2018)  # preprint vs publication
-    assert all(m.kind != "year_mismatch" for m in compare(e, r))
-
-
-def test_year_off_by_more_flagged():
-    e = _entry(year=2017)
-    r = _record(year=2020)
-    assert any(m.kind == "year_mismatch" for m in compare(e, r))
+    for ry in (2018, 2020, 1999):
+        r = _record(year=ry)
+        assert all(m.kind != "year_mismatch" for m in compare(e, r))
 
 
 def test_title_mismatch_flagged():

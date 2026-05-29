@@ -77,9 +77,12 @@ No LLM. No GPU. No DBLP XML dump. Just HTTP + string comparison.
 - **`is_confident_match` requires both title sim AND author overlap.** Title-only
   matches give false positives on conference-proceedings entries that share a
   template title. Don't relax to title-only.
-- **Year off-by-one is tolerated** — preprint year vs publication year.
+- **Year is not compared** — preprint/camera-ready/reprint years diverge too
+  often to signal anything. `year_mismatch` was removed from `compare()`.
 - **Venue comparison strips abbreviations** (NeurIPS ↔ Neural Information
-  Processing Systems). Add new abbreviations in `compare.py:_VENUE_ABBREVIATIONS`.
+  Processing Systems) and collapses arXiv synonyms (`arXiv`/`CoRR`/`arXiv
+  (Cornell University)`/`arXiv preprint arXiv:NNNN.NNNN` → `arxiv`). Add new
+  abbreviations in `compare.py:_VENUE_ABBREVIATIONS`.
 - **`initial_matches` only fires when one side is a single-letter initial.**
   "Jeff" vs "Jeffrey" intentionally does NOT match — those are different names.
 - **The original `.bib` is never modified.** Output goes to a separate file.
@@ -149,10 +152,9 @@ retries, but doesn't undo the server-side throttle.
   `Ves Stoyanov` → `Veselin Stoyanov`, `Alex Nichol` → `Alexander Nichol`,
   multiple entries citing the arXiv preprint when the paper actually appeared at
   NeurIPS/ICLR/IJCAI. The arXiv-vs-real-venue flags are kept on purpose.
-- **Year off-by-1 stays tolerated (preprint vs camera-ready), but a larger gap
-  is a real catch, not noise.** A wrong year is a wrong citation — e.g. Flan-T5
-  cited as 2022 when the JMLR record is 2024 is correctly flagged. Do not widen
-  the tolerance beyond ±1.
+- **Year is not compared at all.** Preprint vs camera-ready vs reprint years
+  diverge legitimately and too often to be useful; `year_mismatch` was removed
+  from `compare()`. Don't reintroduce a year check.
 
 ## Open work
 

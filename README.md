@@ -1,7 +1,7 @@
 # cite-updater
 
 Check a BibTeX file against bibliographic APIs and flag entries whose authors,
-title, year, or venue disagree with what the API says. The original `.bib` is
+title, or venue disagree with what the API says. The original `.bib` is
 never modified — `cite-updater` writes a new file with `@comment` blocks
 attached to each suspect entry, pointing to the canonical DOI/URL so you can
 review and fix by hand.
@@ -59,8 +59,10 @@ Example annotated output:
 | `author_order_wrong` | All authors match but in a different order. |
 | `parsing_error` | The bib author field has unparseable junk (`*`, fragments, etc.). |
 | `title_mismatch` | Cited title vs canonical title fuzzy ratio < 0.92. |
-| `year_mismatch` | Years differ by more than one (preprint/publication slip is tolerated). |
-| `venue_mismatch` | Cited venue doesn't match canonical, after expanding common abbreviations (NeurIPS ↔ Neural Information Processing Systems, etc.). |
+| `venue_mismatch` | Cited venue doesn't match canonical, after expanding common abbreviations (NeurIPS ↔ Neural Information Processing Systems, etc.) and collapsing arXiv synonyms. |
+
+Year is deliberately not compared — preprint, camera-ready, and reprint years
+diverge legitimately and too often to be a useful signal.
 
 No LLM, no GPU. The categories come from rule-based comparison only.
 

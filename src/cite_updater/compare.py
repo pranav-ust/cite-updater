@@ -18,7 +18,7 @@ from .normalize import (
 from .providers import CanonicalRecord
 
 
-MismatchKind = str  # e.g. "first_name_mismatch", "title_mismatch", "year_mismatch", ...
+MismatchKind = str  # e.g. "first_name_mismatch", "title_mismatch", "venue_mismatch", ...
 
 
 @dataclass
@@ -131,7 +131,9 @@ def _classify_single_unmatched(ref_author, candidates):
     return None
 
 
-# ---------- title / year / venue ----------
+# ---------- title / venue ----------
+# Year is intentionally not compared: preprint vs camera-ready vs reprint years
+# diverge legitimately and too often to be a useful signal.
 
 def _compare_title(entry: BibEntry, record: CanonicalRecord) -> list[Mismatch]:
     if not entry.title or not record.title:
@@ -142,14 +144,6 @@ def _compare_title(entry: BibEntry, record: CanonicalRecord) -> list[Mismatch]:
     if sim < 0.92:
         return [Mismatch("title_mismatch", f"{entry.title!r} vs {record.title!r} (sim={sim:.2f})")]
     return []
-
-
-def _compare_year(entry: BibEntry, record: CanonicalRecord) -> list[Mismatch]:
-    if entry.year is None or record.year is None:
-        return []
-    if abs(entry.year - record.year) <= 1:
-        return []  # preprint-vs-publication year drift
-    return [Mismatch("year_mismatch", f"{entry.year} vs {record.year}")]
 
 
 _VENUE_ABBREVIATIONS = {
@@ -206,7 +200,6 @@ def compare(entry: BibEntry, record: CanonicalRecord) -> list[Mismatch]:
     return (
         _compare_authors(entry, record)
         + _compare_title(entry, record)
-        + _compare_year(entry, record)
         + _compare_venue(entry, record)
     )
 
