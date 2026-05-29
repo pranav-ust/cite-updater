@@ -6,6 +6,7 @@ import logging
 import threading
 import time
 from pathlib import Path
+from typing import Callable, TypeVar
 
 import requests
 import requests_cache
@@ -13,6 +14,8 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 log = logging.getLogger(__name__)
+
+T = TypeVar("T")
 
 DEFAULT_USER_AGENT = "cite-updater/0.1 (+https://github.com/pranav-ust/cite-updater)"
 DEFAULT_CACHE_PATH = Path.home() / ".cache" / "cite-updater" / "http"
@@ -53,10 +56,28 @@ def build_session(
 
 
 class RateLimiter:
-    """Simple per-domain rate limiter: ensure at least `min_interval` seconds between calls."""
+    """Per-domain rate limiter with adaptive backoff.
 
-    def __init__(self, min_interval: float):
+    Ensures at least `min_interval` seconds between calls. On a request failure,
+    `request()` widens the interval (doubling, capped at `max_interval`), sleeps
+    `backoff_sleep`, and retries once; a success decays the interval back toward
+    `min_interval`. With the defaults (`max_interval == min_interval`,
+    `backoff_sleep == 0`) it behaves like a plain spacing limiter.
+    """
+
+    def __init__(
+        self,
+        min_interval: float,
+        *,
+        name: str = "",
+        max_interval: float | None = None,
+        backoff_sleep: float = 0.0,
+    ):
+        self.base_interval = min_interval
         self.min_interval = min_interval
+        self.max_interval = max_interval if max_interval is not None else min_interval
+        self.backoff_sleep = backoff_sleep
+        self.name = name
         self._last = 0.0
         self._lock = threading.Lock()
 
@@ -69,3 +90,32 @@ class RateLimiter:
             if wait_for > 0:
                 time.sleep(wait_for)
             self._last = time.monotonic()
+
+    def request(self, fetch: Callable[[], T]) -> T:
+        """Run `fetch` under the rate limit, retrying once with backoff on failure."""
+        self.wait()
+        try:
+            result = fetch()
+        except requests.RequestException as exc:
+            self._widen()
+            log.info(
+                "%s request failed, backing off (interval=%.1fs): %s",
+                self.name or "provider", self.min_interval, exc,
+            )
+            if self.backoff_sleep > 0:
+                time.sleep(self.backoff_sleep)
+            self.wait()
+            try:
+                result = fetch()
+            except requests.RequestException:
+                self._widen()
+                raise
+        self._narrow()
+        return result
+
+    def _widen(self) -> None:
+        self.min_interval = min(max(self.min_interval, self.base_interval) * 2, self.max_interval)
+
+    def _narrow(self) -> None:
+        if self.min_interval > self.base_interval:
+            self.min_interval = max(self.min_interval * 0.8, self.base_interval)

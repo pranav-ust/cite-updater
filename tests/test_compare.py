@@ -94,3 +94,25 @@ def test_arxiv_vs_real_venue_still_flagged():
     e = _entry(venue="ArXiv")
     r = _record(venue="International Conference on Learning Representations")
     assert any(m.kind == "venue_mismatch" for m in compare(e, r))
+
+
+def test_journal_abbreviations_not_flagged():
+    # DBLP/IEEE-style abbreviations (truncated words + periods) should match.
+    pairs = [
+        ("Appl. Math. Comput.", "Applied Mathematics and Computation"),
+        ("IEEE Trans. Pattern Anal. Mach. Intell.",
+         "IEEE Transactions on Pattern Analysis and Machine Intelligence"),
+        ("North American Chapter of the Association for Computational Linguistics",
+         "NAACL-HLT"),
+    ]
+    for entry_venue, record_venue in pairs:
+        e = _entry(venue=entry_venue)
+        r = _record(venue=record_venue)
+        assert all(m.kind != "venue_mismatch" for m in compare(e, r)), (entry_venue, record_venue)
+
+
+def test_distinct_venues_not_treated_as_abbreviation():
+    # Genuinely different venues must still flag, not be excused as abbreviations.
+    e = _entry(venue="Neural Information Processing Systems")
+    r = _record(venue="International Conference on Machine Learning")
+    assert any(m.kind == "venue_mismatch" for m in compare(e, r))

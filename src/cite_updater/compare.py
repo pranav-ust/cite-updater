@@ -154,12 +154,15 @@ _VENUE_ABBREVIATIONS = {
     "aaai": "aaai conference on artificial intelligence",
     "acl": "association for computational linguistics",
     "emnlp": "empirical methods in natural language processing",
+    "naacl": "north american chapter of the association for computational linguistics",
+    "naacl-hlt": "north american chapter of the association for computational linguistics",
     "cvpr": "computer vision and pattern recognition",
     "facct": "fairness accountability and transparency",
     "fat*": "fairness accountability and transparency",
 }
 
 _VENUE_NOISE = re.compile(r"\b(proc\.?|proceedings|of the|conf\.?|conference|the)\b", re.IGNORECASE)
+_VENUE_PUNCT = re.compile(r"[^\w\s]")
 
 # arXiv has many surface forms across providers/authors, all meaning the same
 # preprint server: "arXiv", "CoRR" (DBLP's label), "arXiv preprint arXiv:1234.5678"
@@ -175,12 +178,35 @@ def _normalize_venue(v: str) -> str:
         return ""
     if _ARXIV_VENUE.search(v):
         return "arxiv"
+    v = _VENUE_PUNCT.sub(" ", v)  # "Appl. Math. Comput." → "appl math comput"
+    v = " ".join(v.split())
     for short, long in _VENUE_ABBREVIATIONS.items():
+        short = _VENUE_PUNCT.sub(" ", short).strip()
         if v == short or v.startswith(short + " ") or v == long:
             v = long
             break
     v = _VENUE_NOISE.sub(" ", v)
     return " ".join(v.split())
+
+
+def _is_abbreviation(a: str, b: str) -> bool:
+    """True if the shorter venue is a token-wise abbreviation of the longer one.
+
+    Each token of the shorter string must be a prefix of a token in the longer
+    string, matched left-to-right (skipping the longer string's extra/stopword
+    tokens). Handles DBLP/IEEE-style abbreviations like "IEEE Trans. Pattern
+    Anal. Mach. Intell." vs "IEEE Transactions on Pattern Analysis and Machine
+    Intelligence", or "Appl. Math. Comput." vs "Applied Mathematics and Computation".
+    """
+    ta, tb = a.split(), b.split()
+    short, long = (ta, tb) if len(ta) <= len(tb) else (tb, ta)
+    if len(short) < 2 or short == long:
+        return False  # single-token abbreviations are too weak to trust
+    i = 0
+    for token in long:
+        if i < len(short) and token.startswith(short[i]):
+            i += 1
+    return i == len(short)
 
 
 def _compare_venue(entry: BibEntry, record: CanonicalRecord) -> list[Mismatch]:
@@ -191,9 +217,9 @@ def _compare_venue(entry: BibEntry, record: CanonicalRecord) -> list[Mismatch]:
     if not a or not b:
         return []
     sim = fuzz.partial_ratio(a, b) / 100.0
-    if sim < 0.7:
-        return [Mismatch("venue_mismatch", f"{entry.venue!r} vs {record.venue!r}")]
-    return []
+    if sim >= 0.7 or _is_abbreviation(a, b):
+        return []
+    return [Mismatch("venue_mismatch", f"{entry.venue!r} vs {record.venue!r}")]
 
 
 def compare(entry: BibEntry, record: CanonicalRecord) -> list[Mismatch]:

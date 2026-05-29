@@ -20,21 +20,25 @@ class SemanticScholarProvider:
     def __init__(self, session, *, max_results: int = 5):
         self.session = session
         self.max_results = max_results
-        # Unauthenticated tier is heavily rate-limited; be conservative.
-        self.limiter = RateLimiter(min_interval=1.0)
+        # Unauthenticated tier is heavily rate-limited and 429s often; be
+        # conservative and back off hard.
+        self.limiter = RateLimiter(min_interval=1.0, name="semantic_scholar", max_interval=10.0, backoff_sleep=10.0)
 
     def search(self, entry: BibEntry) -> CanonicalRecord | None:
         if not entry.title:
             return None
-        self.limiter.wait()
-        params = {"query": entry.title, "limit": self.max_results, "fields": S2_FIELDS}
-        resp = self.session.get(S2_API, params=params, timeout=20)
-        resp.raise_for_status()
-        for paper in resp.json().get("data", []):
+        papers = self.limiter.request(lambda: self._fetch(entry.title))
+        for paper in papers:
             record = _to_record(paper)
             if is_confident_match(entry, record):
                 return record
         return None
+
+    def _fetch(self, title: str) -> list[dict]:
+        params = {"query": title, "limit": self.max_results, "fields": S2_FIELDS}
+        resp = self.session.get(S2_API, params=params, timeout=20)
+        resp.raise_for_status()
+        return resp.json().get("data", [])
 
 
 def _to_record(paper: dict) -> CanonicalRecord:

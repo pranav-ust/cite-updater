@@ -19,21 +19,24 @@ class OpenAlexProvider:
     def __init__(self, session, *, max_results: int = 5):
         self.session = session
         self.max_results = max_results
-        # OpenAlex polite pool is generous; keep a tiny gap.
-        self.limiter = RateLimiter(min_interval=0.1)
+        # OpenAlex polite pool is generous; tiny gap, but back off if it 429s.
+        self.limiter = RateLimiter(min_interval=0.1, name="openalex", max_interval=5.0, backoff_sleep=5.0)
 
     def search(self, entry: BibEntry) -> CanonicalRecord | None:
         if not entry.title:
             return None
-        self.limiter.wait()
-        params = {"search": entry.title, "per-page": self.max_results}
-        resp = self.session.get(OPENALEX_API, params=params, timeout=20)
-        resp.raise_for_status()
-        for work in resp.json().get("results", []):
+        results = self.limiter.request(lambda: self._fetch(entry.title))
+        for work in results:
             record = _to_record(work)
             if is_confident_match(entry, record):
                 return record
         return None
+
+    def _fetch(self, title: str) -> list[dict]:
+        params = {"search": title, "per-page": self.max_results}
+        resp = self.session.get(OPENALEX_API, params=params, timeout=20)
+        resp.raise_for_status()
+        return resp.json().get("results", [])
 
 
 def _to_record(work: dict) -> CanonicalRecord:

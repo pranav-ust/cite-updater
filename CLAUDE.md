@@ -86,9 +86,13 @@ No LLM. No GPU. No DBLP XML dump. Just HTTP + string comparison.
 - **`initial_matches` only fires when one side is a single-letter initial.**
   "Jeff" vs "Jeffrey" intentionally does NOT match — those are different names.
 - **The original `.bib` is never modified.** Output goes to a separate file.
-- **Per-provider rate limiters live in each provider class.** arXiv = 3s gap,
-  DBLP = 1.1s, others looser. Don't run providers in parallel without rethinking
-  these.
+- **Per-provider rate limiters with adaptive backoff** (`http_client.py:RateLimiter`).
+  Each provider sets a base gap (arXiv 3s, DBLP 1.1s, S2 1s, OpenAlex/CrossRef
+  0.1s) plus `max_interval` + `backoff_sleep`. `limiter.request(fetch)` wraps the
+  HTTP call: on a `RequestException` it doubles the gap (capped at `max_interval`),
+  sleeps `backoff_sleep`, retries once, then decays back toward base on success.
+  All five providers route through this. Don't run providers in parallel without
+  rethinking the shared limiter state.
 
 ## Dev workflow
 
@@ -142,8 +146,22 @@ retries, but doesn't undo the server-side throttle.
   (InstructGPT) → unrelated OpenAlex `W7133211372` false match now correctly
   falls through to unmatched. et-al tokens (`others`, `et al`) are excluded from
   the overlap count.
+- **Venue/journal abbreviations handled (`compare.py:_is_abbreviation`).** Punctuation
+  is stripped during normalization and a token-prefix subsequence matcher accepts
+  DBLP/IEEE-style abbreviations: `Appl. Math. Comput.` ↔ `Applied Mathematics and
+  Computation`, `IEEE Trans. Pattern Anal. Mach. Intell.` ↔ the full name. NAACL
+  was added to `_VENUE_ABBREVIATIONS` (irregular acronym, not prefix-derivable).
+- **Adaptive backoff on all five providers** (was DBLP + arXiv only). Folded into
+  the shared `http_client.py:RateLimiter.request`; each provider just sets base /
+  max / sleep.
 
 ### Findings — still open / informational
+
+- **Provider-returned junk venues still slip through.** OpenAlex sometimes returns
+  an institutional repository as the venue (e.g. `Edinburgh Research Explorer
+  (University of Edinburgh)` for an ICLR paper), which flags as `venue_mismatch`.
+  Not an abbreviation, so `_is_abbreviation` can't fix it; would need to distrust
+  OpenAlex's venue field for repository-like names. Low frequency, left as-is.
 
 - **Most "unmatched" entries are legit, not a bug.** Spot-checking sample 2:
   workshop papers, pre-2010 NLP references, niche math books (Bakry-Gentil-Ledoux

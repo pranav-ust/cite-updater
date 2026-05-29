@@ -3,8 +3,7 @@ import requests
 import responses
 
 from cite_updater.bib_io import BibEntry
-from cite_updater.http_client import build_session
-from cite_updater.providers import arxiv as arxiv_mod
+from cite_updater.http_client import RateLimiter, build_session
 from cite_updater.providers.arxiv import ArxivProvider
 from cite_updater.providers.crossref import CROSSREF_API, CrossrefProvider
 from cite_updater.providers.dblp import DBLP_API, DblpProvider
@@ -91,24 +90,48 @@ def test_crossref_parses_doi():
     assert rec.year == 2017
 
 
-def test_arxiv_backoff_widens_and_decays():
-    p = ArxivProvider(session=build_session(cache=False))
-    base = p.limiter.min_interval
-    p._on_failure()
-    assert p.limiter.min_interval == base * 2
+def test_rate_limiter_backoff_widens_and_decays():
+    rl = RateLimiter(min_interval=1.0, name="t", max_interval=8.0, backoff_sleep=0)
+    rl._widen()
+    assert rl.min_interval == 2.0
     for _ in range(10):
-        p._on_failure()
-    assert p.limiter.min_interval == arxiv_mod._MAX_INTERVAL  # capped
-    p._on_success()
-    assert p.limiter.min_interval < arxiv_mod._MAX_INTERVAL    # decays
-    assert p.limiter.min_interval >= base
+        rl._widen()
+    assert rl.min_interval == 8.0          # capped at max_interval
+    rl._narrow()
+    assert 1.0 <= rl.min_interval < 8.0    # decays toward base
 
 
-def test_arxiv_retries_once_on_throttle(monkeypatch):
-    monkeypatch.setattr(arxiv_mod.time, "sleep", lambda *_: None)  # no real backoff sleep
+def test_rate_limiter_retries_once_then_succeeds():
+    rl = RateLimiter(min_interval=0, name="t", max_interval=8.0, backoff_sleep=0)
+    calls = {"n": 0}
+
+    def flaky():
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise requests.ConnectionError("too many 429 error responses")
+        return "ok"
+
+    assert rl.request(flaky) == "ok"
+    assert calls["n"] == 2  # one failure + one retry
+
+
+def test_rate_limiter_propagates_after_second_failure():
+    rl = RateLimiter(min_interval=0, name="t", max_interval=8.0, backoff_sleep=0)
+
+    def always_fails():
+        raise requests.ConnectionError("down")
+
+    try:
+        rl.request(always_fails)
+        assert False, "should have raised"
+    except requests.ConnectionError:
+        pass
+
+
+def test_arxiv_retries_once_on_throttle():
+    # arXiv uses the shared RateLimiter.request path end-to-end.
     p = ArxivProvider(session=build_session(cache=False))
-    # _fetch is patched below, so limiter.wait() never fires — leave min_interval
-    # at the base so the backoff math is observable.
+    p.limiter.backoff_sleep = 0  # don't actually sleep in tests
     calls = {"n": 0}
 
     def flaky_fetch(_title):
@@ -120,4 +143,3 @@ def test_arxiv_retries_once_on_throttle(monkeypatch):
     p._fetch = flaky_fetch
     assert p.search(_entry()) is None      # retried past the throttle, didn't propagate
     assert calls["n"] == 2                  # one failure + one retry
-    assert p.limiter.min_interval >= arxiv_mod._BASE_INTERVAL * 2 * 0.8  # bumped then decayed

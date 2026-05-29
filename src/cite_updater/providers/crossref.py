@@ -19,24 +19,27 @@ class CrossrefProvider:
     def __init__(self, session, *, max_results: int = 5):
         self.session = session
         self.max_results = max_results
-        self.limiter = RateLimiter(min_interval=0.1)
+        self.limiter = RateLimiter(min_interval=0.1, name="crossref", max_interval=5.0, backoff_sleep=5.0)
 
     def search(self, entry: BibEntry) -> CanonicalRecord | None:
         if not entry.title:
             return None
-        self.limiter.wait()
+        items = self.limiter.request(lambda: self._fetch(entry.title))
+        for item in items:
+            record = _to_record(item)
+            if is_confident_match(entry, record):
+                return record
+        return None
+
+    def _fetch(self, title: str) -> list[dict]:
         params = {
-            "query.bibliographic": entry.title,
+            "query.bibliographic": title,
             "rows": self.max_results,
             "select": "DOI,title,author,issued,container-title,URL",
         }
         resp = self.session.get(CROSSREF_API, params=params, timeout=20)
         resp.raise_for_status()
-        for item in resp.json().get("message", {}).get("items", []):
-            record = _to_record(item)
-            if is_confident_match(entry, record):
-                return record
-        return None
+        return resp.json().get("message", {}).get("items", [])
 
 
 def _to_record(item: dict) -> CanonicalRecord:

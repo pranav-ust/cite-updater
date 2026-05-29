@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 import logging
-import time
 
 import feedparser
-import requests
 
 from ..bib_io import BibEntry
 from ..http_client import RateLimiter
@@ -16,13 +14,6 @@ log = logging.getLogger(__name__)
 
 ARXIV_API = "http://export.arxiv.org/api/query"
 
-# arXiv asks for <=1 request every 3s, but throttles by IP and returns bursts of
-# 429s once tripped — and the per-instance limiter resets each run, so repeated
-# runs hammer the same IP limit. Widen the gap on failure (cap 30s), retry once.
-_BASE_INTERVAL = 3.0
-_MAX_INTERVAL = 30.0
-_BACKOFF_SLEEP = 15.0
-
 
 class ArxivProvider:
     name = "arxiv"
@@ -30,23 +21,15 @@ class ArxivProvider:
     def __init__(self, session, *, max_results: int = 5):
         self.session = session
         self.max_results = max_results
-        self.limiter = RateLimiter(min_interval=_BASE_INTERVAL)
+        # arXiv asks for <=1 request every 3s and throttles by IP (429 bursts);
+        # the per-instance limiter resets each run, so repeated runs hammer the
+        # same IP limit. Widen aggressively on failure.
+        self.limiter = RateLimiter(min_interval=3.0, name="arxiv", max_interval=30.0, backoff_sleep=15.0)
 
     def search(self, entry: BibEntry) -> CanonicalRecord | None:
         if not entry.title:
             return None
-        try:
-            feed = self._fetch(entry.title)
-        except requests.RequestException as exc:
-            self._on_failure()
-            log.info("arxiv throttled, backing off (interval=%.1fs): %s", self.limiter.min_interval, exc)
-            time.sleep(_BACKOFF_SLEEP)
-            try:
-                feed = self._fetch(entry.title)
-            except requests.RequestException as exc2:
-                self._on_failure()
-                raise exc2
-        self._on_success()
+        feed = self.limiter.request(lambda: self._fetch(entry.title))
         for item in feed.entries:
             arxiv_id = (getattr(item, "id", "") or "").rsplit("/", 1)[-1]
             record = CanonicalRecord(
@@ -63,18 +46,10 @@ class ArxivProvider:
         return None
 
     def _fetch(self, title: str):
-        self.limiter.wait()
         params = {"search_query": f'ti:"{title}"', "max_results": self.max_results}
         resp = self.session.get(ARXIV_API, params=params, timeout=20)
         resp.raise_for_status()
         return feedparser.parse(resp.text)
-
-    def _on_failure(self) -> None:
-        self.limiter.min_interval = min(self.limiter.min_interval * 2, _MAX_INTERVAL)
-
-    def _on_success(self) -> None:
-        if self.limiter.min_interval > _BASE_INTERVAL:
-            self.limiter.min_interval = max(self.limiter.min_interval * 0.8, _BASE_INTERVAL)
 
 
 def _year(published: str) -> int | None:
