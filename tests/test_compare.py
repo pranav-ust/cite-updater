@@ -78,3 +78,23 @@ def test_venue_unrelated_flagged():
     e = _entry(venue="ICML")
     r = _record(venue="Neural Information Processing Systems")
     assert any(m.kind == "venue_mismatch" for m in compare(e, r))
+
+
+def test_arxiv_venue_synonyms_not_flagged():
+    # All of these mean "arXiv" and should collapse together, not flag.
+    arxiv_forms = [
+        ("ArXiv", "CoRR"),
+        ("arXiv preprint arXiv:1506.03365", "arXiv (Cornell University)"),
+        ("arXiv: Neural and Evolutionary Computing", "arXiv"),
+    ]
+    for entry_venue, record_venue in arxiv_forms:
+        e = _entry(venue=entry_venue)
+        r = _record(venue=record_venue)
+        assert all(m.kind != "venue_mismatch" for m in compare(e, r)), (entry_venue, record_venue)
+
+
+def test_arxiv_vs_real_venue_still_flagged():
+    # Citing the arXiv preprint when the paper appeared at a real venue is a real catch.
+    e = _entry(venue="ArXiv")
+    r = _record(venue="International Conference on Learning Representations")
+    assert any(m.kind == "venue_mismatch" for m in compare(e, r))

@@ -118,35 +118,41 @@ Two random-100 samples with `--no-cache` gave:
 | 1 (pre-backoff)  | 21 | 15 | 66 | 17 | 46 | 4  |
 | 2 (post-backoff) | 19 | 13 | 68 |  6 | 38 | 23 |
 
-DBLP adaptive backoff (`providers/dblp.py`) cut DBLP failures by ~3× —
-on `RequestException` it doubles `min_interval` (capped at 8s), sleeps 10s,
-retries once; on success it decays back toward 1.1s. The arXiv-failure spike
-in sample 2 is independent (arXiv 429s on the OAI endpoint).
+Adaptive backoff now lives in **both** `providers/dblp.py` and
+`providers/arxiv.py`: on `RequestException` each doubles its `min_interval`
+(DBLP cap 8s, arXiv cap 30s), sleeps (10s / 15s), retries once, then decays back
+toward baseline on success. DBLP backoff cut DBLP failures ~3× (17→6). arXiv
+throttles by IP across runs, so repeated full-chain runs in one day still trip
+its 429 limit — the backoff degrades gracefully instead of burning 4 fast
+retries, but doesn't undo the server-side throttle.
 
-### Findings worth acting on
+### Findings — fixed
 
-- **`ArXiv` ↔ `CoRR` ↔ `arXiv (Cornell University)` ↔ `arXiv preprint arXiv:NNNN.NNNN`
-  is the single biggest false-positive source for `venue_mismatch`.** Roughly half
-  the venue_mismatches in both samples are just naming-convention differences
-  between cite-updater's input venue and what providers return. Add these as
-  equivalents in `compare.py:_VENUE_ABBREVIATIONS` (or strip the
-  `arXiv:1234.5678` suffix during normalization).
-- **Persistent false positive: `ouyang2022training` (InstructGPT) → OpenAlex
-  `W7133211372` / DOI `10.52202/068431-2011`** — appeared in both samples.
-  DBLP doesn't return a hit; OpenAlex returns an unrelated paper, and
-  `is_confident_match` accepts it. Worth tightening: either require both
-  title-similarity AND a minimum author-overlap *ratio* (not just ≥1), or
-  treat low-confidence OpenAlex hits as no-match.
+- **arXiv venue synonyms collapsed (`compare.py:_normalize_venue`).** `ArXiv`,
+  `CoRR`, `arXiv (Cornell University)`, `arXiv preprint arXiv:NNNN.NNNN`, and
+  `arXiv: <subject>` now normalize to one `arxiv` token, killing the single
+  biggest `venue_mismatch` false-positive source. arXiv-vs-real-venue (e.g.
+  ArXiv vs ICLR) still flags — that's a real catch.
+- **OpenAlex over-acceptance fixed (`is_confident_match`).** A single shared
+  surname is no longer enough to confirm a multi-author paper: once both sides
+  list ≥3 authors, ≥ ceil(min/2) surnames must overlap. The `ouyang2022training`
+  (InstructGPT) → unrelated OpenAlex `W7133211372` false match now correctly
+  falls through to unmatched. et-al tokens (`others`, `et al`) are excluded from
+  the overlap count.
+
+### Findings — still open / informational
+
 - **Most "unmatched" entries are legit, not a bug.** Spot-checking sample 2:
   workshop papers, pre-2010 NLP references, niche math books (Bakry-Gentil-Ledoux
   2014), and theses don't appear in DBLP/OpenAlex/CrossRef.
 - **Real catches that justify the tool:** `Katie Millican` → `Katherine Millican`,
   `Ves Stoyanov` → `Veselin Stoyanov`, `Alex Nichol` → `Alexander Nichol`,
   multiple entries citing the arXiv preprint when the paper actually appeared at
-  NeurIPS/ICLR/IJCAI.
-- **Year-off-by-1 may be too tight for preprint→camera-ready gaps of 2+ years
-  (e.g. Flan-T5: arXiv 2022, JMLR 2024).** Either widen the tolerance or
-  classify these as `venue_mismatch` instead.
+  NeurIPS/ICLR/IJCAI. The arXiv-vs-real-venue flags are kept on purpose.
+- **Year off-by-1 stays tolerated (preprint vs camera-ready), but a larger gap
+  is a real catch, not noise.** A wrong year is a wrong citation — e.g. Flan-T5
+  cited as 2022 when the JMLR record is 2024 is correctly flagged. Do not widen
+  the tolerance beyond ±1.
 
 ## Open work
 

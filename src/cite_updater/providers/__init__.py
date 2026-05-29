@@ -38,19 +38,23 @@ def _norm_title(t: str) -> str:
     return " ".join((t or "").lower().split())
 
 
-def author_overlap(query: list[str], candidate: list[str]) -> int:
-    """Count how many last-name tokens overlap (case-insensitive, accents stripped)."""
+_ETAL_TOKENS = {"others", "etal", "al"}
+
+
+def _last_names(names: list[str]) -> set[str]:
     from ..normalize import strip_accents
 
-    def lasts(names: list[str]) -> set[str]:
-        out: set[str] = set()
-        for n in names:
-            tokens = strip_accents(n).lower().replace(",", " ").split()
-            if tokens:
-                out.add(tokens[-1])
-        return out
+    out: set[str] = set()
+    for n in names:
+        tokens = strip_accents(n).lower().replace(",", " ").split()
+        if tokens and tokens[-1] not in _ETAL_TOKENS:
+            out.add(tokens[-1])
+    return out
 
-    return len(lasts(query) & lasts(candidate))
+
+def author_overlap(query: list[str], candidate: list[str]) -> int:
+    """Count how many last-name tokens overlap (case-insensitive, accents stripped)."""
+    return len(_last_names(query) & _last_names(candidate))
 
 
 def is_confident_match(
@@ -64,8 +68,22 @@ def is_confident_match(
         return False
     if title_similarity(entry.title, record.title) < min_title_sim:
         return False
-    if entry.authors and author_overlap(entry.authors, record.authors) < min_author_overlap:
-        return False
+    if entry.authors:
+        q = _last_names(entry.authors)
+        c = _last_names(record.authors)
+        overlap = len(q & c)
+        # A single shared surname is weak evidence when both papers list many
+        # authors — common names (Zhang, Wang, Kumar) collide across unrelated
+        # papers. Require half the smaller list to overlap once both sides have
+        # several authors. A correct match overlaps ~all names even with a typo;
+        # a wrong record (e.g. the InstructGPT entry matching an unrelated
+        # OpenAlex record on 3 of 10 surnames) is rejected. Title-only fuzz is
+        # not enough to confirm authorship.
+        required = min_author_overlap
+        if len(q) >= 3 and len(c) >= 3:
+            required = max(required, -(-min(len(q), len(c)) // 2))  # ceil(min/2)
+        if overlap < required:
+            return False
     return True
 
 

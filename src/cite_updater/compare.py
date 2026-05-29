@@ -167,11 +167,20 @@ _VENUE_ABBREVIATIONS = {
 
 _VENUE_NOISE = re.compile(r"\b(proc\.?|proceedings|of the|conf\.?|conference|the)\b", re.IGNORECASE)
 
+# arXiv has many surface forms across providers/authors, all meaning the same
+# preprint server: "arXiv", "CoRR" (DBLP's label), "arXiv preprint arXiv:1234.5678"
+# (BibTeX convention), "arXiv (Cornell University)" (OpenAlex), "arXiv: Neural and
+# Evolutionary Computing" (Semantic Scholar subject label). Collapse them all so we
+# don't flag arXiv-vs-arXiv as a venue mismatch. arXiv-vs-real-venue still differs.
+_ARXIV_VENUE = re.compile(r"\barxiv\b|\bcorr\b", re.IGNORECASE)
+
 
 def _normalize_venue(v: str) -> str:
     v = (v or "").lower().strip()
     if not v:
         return ""
+    if _ARXIV_VENUE.search(v):
+        return "arxiv"
     for short, long in _VENUE_ABBREVIATIONS.items():
         if v == short or v.startswith(short + " ") or v == long:
             v = long
