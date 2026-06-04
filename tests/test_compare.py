@@ -90,10 +90,21 @@ def test_arxiv_venue_synonyms_not_flagged():
 
 
 def test_arxiv_vs_real_venue_still_flagged():
-    # Citing the arXiv preprint when the paper appeared at a real venue is a real catch.
+    # Entry cites the arXiv preprint when a real venue exists → keep flagging
+    # ("cite the actual venue" nudge).
     e = _entry(venue="ArXiv")
     r = _record(venue="International Conference on Learning Representations")
     assert any(m.kind == "venue_mismatch" for m in compare(e, r))
+
+
+def test_real_venue_vs_provider_arxiv_not_flagged():
+    # Entry already cites the real venue; provider only offers the preprint
+    # (e.g. OpenAlex "arXiv (Cornell University)" for a NIPS/ICLR paper).
+    # That's the provider being unhelpful, not a bad citation → suppress.
+    for entry_venue in ("NIPS", "The Twelfth International Conference on Learning Representations"):
+        e = _entry(venue=entry_venue)
+        r = _record(venue="arXiv (Cornell University)")
+        assert all(m.kind != "venue_mismatch" for m in compare(e, r)), entry_venue
 
 
 def test_journal_abbreviations_not_flagged():

@@ -35,6 +35,8 @@ Useful flags:
 - `--providers arxiv,dblp` — restrict / reorder the chain.
 - `--no-cache` — bypass the on-disk HTTP cache (defaults to
   `~/.cache/cite-updater/http.sqlite`, 30 day TTL).
+- `--no-progress` — disable the progress indicator (an in-place bar on a TTY,
+  or one greppable `PROGRESS i/n …` line per entry when stderr is redirected).
 - `-v` / `-vv` — increase verbosity.
 
 Example annotated output:

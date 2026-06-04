@@ -216,6 +216,14 @@ def _compare_venue(entry: BibEntry, record: CanonicalRecord) -> list[Mismatch]:
     b = _normalize_venue(record.venue)
     if not a or not b:
         return []
+    # Asymmetric arXiv handling: if the citation names a real venue but the
+    # provider only knows the preprint (e.g. OpenAlex returning "arXiv (Cornell
+    # University)" for a NIPS/ICLR paper), that's the provider being unhelpful,
+    # not a bad citation — citing the published venue is good practice. Suppress.
+    # The reverse (entry cites arXiv, a real venue exists) is still flagged: it's
+    # the "cite the actual venue, not the preprint" nudge.
+    if b == "arxiv" and a != "arxiv":
+        return []
     sim = fuzz.partial_ratio(a, b) / 100.0
     if sim >= 0.7 or _is_abbreviation(a, b):
         return []
