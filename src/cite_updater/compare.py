@@ -176,17 +176,50 @@ def _compare_title(entry: BibEntry, record: CanonicalRecord) -> list[Mismatch]:
     return []
 
 
+# Irregular acronyms whose full form the token-prefix matcher (`_is_abbreviation`)
+# cannot derive — i.e. acronyms that aren't built from the leading letters of the
+# full venue name. Keys are lowercase short forms, values the lowercase full name.
+# For abbreviations the prefix matcher already handles (e.g. truncated journal
+# names like "Appl. Math. Comput."), don't add an entry here.
 _VENUE_ABBREVIATIONS = {
+    # ML / general AI
     "neurips": "neural information processing systems",
     "nips": "neural information processing systems",
     "icml": "international conference on machine learning",
     "iclr": "international conference on learning representations",
     "aaai": "aaai conference on artificial intelligence",
+    "ijcai": "international joint conference on artificial intelligence",
+    "uai": "uncertainty in artificial intelligence",
+    "aistats": "artificial intelligence and statistics",
+    "colt": "conference on learning theory",
+    "jmlr": "journal of machine learning research",
+    "tmlr": "transactions on machine learning research",
+    # NLP / computational linguistics
     "acl": "association for computational linguistics",
     "emnlp": "empirical methods in natural language processing",
     "naacl": "north american chapter of the association for computational linguistics",
     "naacl-hlt": "north american chapter of the association for computational linguistics",
+    "eacl": "european chapter of the association for computational linguistics",
+    "aacl": "asia-pacific chapter of the association for computational linguistics",
+    "coling": "international conference on computational linguistics",
+    "tacl": "transactions of the association for computational linguistics",
+    "cl": "computational linguistics",
+    # Vision
     "cvpr": "computer vision and pattern recognition",
+    "iccv": "international conference on computer vision",
+    "eccv": "european conference on computer vision",
+    "tpami": "transactions on pattern analysis and machine intelligence",
+    # Data mining / information retrieval / databases
+    "kdd": "knowledge discovery and data mining",
+    "sigir": "research and development in information retrieval",
+    "www": "the web conference",
+    "the web conf": "the web conference",
+    "wsdm": "web search and data mining",
+    "cikm": "information and knowledge management",
+    "icde": "international conference on data engineering",
+    "vldb": "very large data bases",
+    "sigmod": "management of data",
+    # Fairness
     "facct": "fairness accountability and transparency",
     "fat*": "fairness accountability and transparency",
 }

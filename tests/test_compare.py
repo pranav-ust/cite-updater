@@ -190,3 +190,36 @@ def test_distinct_venues_not_treated_as_abbreviation():
     e = _entry(venue="Neural Information Processing Systems")
     r = _record(venue="International Conference on Machine Learning")
     assert any(m.kind == "venue_mismatch" for m in compare(e, r))
+
+
+def test_irregular_acronym_abbreviations_not_flagged():
+    # Acronyms the token-prefix matcher can't derive must match their full names
+    # via the _VENUE_ABBREVIATIONS table (either direction).
+    pairs = [
+        ("EMNLP", "Empirical Methods in Natural Language Processing"),
+        ("COLING", "International Conference on Computational Linguistics"),
+        ("EACL", "European Chapter of the Association for Computational Linguistics"),
+        ("TACL", "Transactions of the Association for Computational Linguistics"),
+        ("IJCAI", "International Joint Conference on Artificial Intelligence"),
+        ("KDD", "Knowledge Discovery and Data Mining"),
+        ("SIGIR", "Research and Development in Information Retrieval"),
+        ("ICCV", "International Conference on Computer Vision"),
+        ("ECCV", "European Conference on Computer Vision"),
+        ("VLDB", "Very Large Data Bases"),
+        ("AISTATS", "Artificial Intelligence and Statistics"),
+        ("JMLR", "Journal of Machine Learning Research"),
+        ("WWW", "The Web Conference"),
+        # reverse direction (full name in entry, acronym in record)
+        ("Conference on Learning Theory", "COLT"),
+    ]
+    for entry_venue, record_venue in pairs:
+        e = _entry(venue=entry_venue)
+        r = _record(venue=record_venue)
+        assert all(m.kind != "venue_mismatch" for m in compare(e, r)), (entry_venue, record_venue)
+
+
+def test_distinct_acronym_venues_still_flagged():
+    # Two genuinely different real venues must still flag despite both being known.
+    e = _entry(venue="EMNLP")
+    r = _record(venue="International Conference on Computer Vision")
+    assert any(m.kind == "venue_mismatch" for m in compare(e, r))
