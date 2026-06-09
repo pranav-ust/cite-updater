@@ -1,13 +1,11 @@
 # cite-updater
 
-Check a BibTeX file against bibliographic APIs and flag entries whose authors,
-title, or venue disagree with the canonical record. The original `.bib` is never
-modified — `cite-updater` writes a new file with `@comment` suggestions above
-each suspect entry. No LLM, no GPU; rule-based comparison only.
+Check a BibTeX file against bibliographic APIs (DBLP → CrossRef → OpenAlex →
+arXiv → Semantic Scholar) and flag entries whose authors, title, or venue
+disagree with the canonical record. Your `.bib` is never modified —
+suggestions are written to a new file as `@comment` blocks. No LLM, no GPU.
 
-Lookup chain: **DBLP → CrossRef → OpenAlex → arXiv → Semantic Scholar**. The
-first provider returning a confident match (title fuzz ≥ 0.85 and ≥ 1 author
-overlap) wins.
+This tool accompanies our FAccT paper on citation accuracy in ML scholarship.
 
 ## Install
 
@@ -17,35 +15,37 @@ cd cite-updater
 pip install -e .
 ```
 
-## Usage
+## Check your bib
 
 ```bash
-cite-updater refs.bib -o refs.corrected.bib
+cite-updater refs.bib -o refs.checked.bib
 ```
 
-Sample inputs live in [`examples/`](examples/):
+Try it on a sample from [`examples/`](examples/):
 
 ```bash
 cite-updater examples/acl_paper.bib -o /tmp/out.bib -v
 ```
 
-Flags: `--providers dblp,arxiv` (restrict/reorder the chain), `--no-cache`,
-`--no-progress`, `-v`/`-vv`.
+## Your output
 
-## What gets flagged
+Each suspect entry gets a `@comment` suggestion prepended; the original entry is
+left untouched, so you review and fix by hand:
 
-| Kind | When |
-|------|------|
-| `first_name_mismatch` / `last_name_mismatch` | Same author, name differs (typo, dropped initial). |
-| `accents_missing` | Citation dropped diacritics the record carries (`Bengio` → `Bengío`). |
-| `author_not_found` | A cited author has no counterpart in the record. |
-| `author_order_wrong` | All authors match, different order. |
-| `parsing_error` | Author field has unparseable junk. |
-| `title_mismatch` | Title fuzz < 0.92. |
-| `venue_mismatch` | Venue disagrees after expanding abbreviations and collapsing arXiv synonyms. |
-| `preprint_published` | Venue-less arXiv entry the record shows was published — suggests the real venue. |
+```bibtex
+@comment{cite-updater suggestion for he2016deep:
+  first_name_mismatch: Jeff Sun vs Jian Sun
+  suggested: source=dblp:conf/cvpr/HeZRS16, doi=10.1109/CVPR.2016.90}
 
-Year is not compared (preprint/camera-ready/reprint years diverge too often).
+@inproceedings{he2016deep,
+  author = {Kaiming He and Xiangyu Zhang and Shaoqing Ren and Jeff Sun},
+  ...
+}
+```
+
+It flags author-name typos, missing diacritics, wrong/missing authors, author
+order, title and venue mismatches, and arXiv preprints that were later
+published. Year is not compared. Run `cite-updater --help` for flags.
 
 ## Development
 
