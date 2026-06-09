@@ -23,6 +23,12 @@ pip install -e .
 cite-updater refs.bib -o refs.corrected.bib
 ```
 
+Sample inputs live in [`examples/`](examples/):
+
+```bash
+cite-updater examples/acl_paper.bib -o /tmp/out.bib -v
+```
+
 Flags: `--providers dblp,arxiv` (restrict/reorder the chain), `--no-cache`,
 `--no-progress`, `-v`/`-vv`.
 

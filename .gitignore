@@ -1,6 +1,11 @@
 # Local agent guidance
 CLAUDE.md
 
+# Local-only: generated arXiv round-trip fixtures + data-harvesting script
+# (kept on disk for local smoke runs, not part of the published package)
+test_files/
+scripts/fetch_arxiv_sources.py
+
 # OS / editor
 .DS_Store
 .vscode/
