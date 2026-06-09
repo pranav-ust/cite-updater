@@ -67,6 +67,50 @@ def test_dblp_returns_none_on_low_similarity():
 
 
 @responses.activate
+def test_dblp_truncated_title_fallback_finds_record():
+    # Long, generically-titled paper: the full-title query buries the real entry,
+    # but the first-5-words fallback query surfaces it.
+    entry = BibEntry(
+        key="bert", entry_type="inproceedings",
+        title="BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding",
+        authors=["Jacob Devlin", "Ming-Wei Chang"],
+        year=2019, venue=None, doi=None, raw=None,
+    )
+    # First query (full title) returns only an unrelated hit — no confident match.
+    responses.get(
+        DBLP_API,
+        json={"result": {"hits": {"hit": [{"info": {
+            "title": "A Survey of Pre-trained Language Models",
+            "authors": {"author": [{"text": "Someone Else"}]},
+            "year": "2021",
+        }}]}}},
+    )
+    # Second query (first 5 words of the title) surfaces the real paper.
+    responses.get(
+        DBLP_API,
+        json={"result": {"hits": {"hit": [{"info": {
+            "title": "BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding.",
+            "authors": {"author": [
+                {"text": "Jacob Devlin"},
+                {"text": "Ming-Wei Chang"},
+            ]},
+            "year": "2019",
+            "venue": "NAACL-HLT",
+            "doi": "10.18653/v1/n19-1423",
+            "ee": "https://aclanthology.org/N19-1423/",
+            "key": "conf/naacl/DevlinCLT19",
+        }}]}}},
+    )
+    p = DblpProvider(session=build_session(cache=False))
+    p.limiter.min_interval = 0
+    rec = p.search(entry)
+    assert rec is not None
+    assert rec.doi == "10.18653/v1/n19-1423"
+    assert rec.source.startswith("dblp:")
+    assert len(responses.calls) == 2  # full-title query then truncated fallback
+
+
+@responses.activate
 def test_crossref_parses_doi():
     responses.get(
         CROSSREF_API,

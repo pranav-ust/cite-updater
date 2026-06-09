@@ -17,7 +17,7 @@ DBLP_API = "https://dblp.org/search/publ/api"
 class DblpProvider:
     name = "dblp"
 
-    def __init__(self, session, *, max_results: int = 10):
+    def __init__(self, session, *, max_results: int = 25):
         self.session = session
         self.max_results = max_results
         self.limiter = RateLimiter(min_interval=1.1, name="dblp", max_interval=8.0, backoff_sleep=10.0)
@@ -26,6 +26,21 @@ class DblpProvider:
         if not entry.title:
             return None
         hits = self.limiter.request(lambda: self._fetch(entry.title))
+        record = self._first_confident(entry, hits)
+        if record is not None:
+            return record
+
+        # Fallback: generic titles can rank the real paper below the top hits.
+        # Retry with just the first ~5 words to tighten DBLP's BM25 ranking.
+        truncated = " ".join(entry.title.split()[:5])
+        if truncated and truncated != entry.title:
+            hits = self.limiter.request(lambda: self._fetch(truncated))
+            record = self._first_confident(entry, hits)
+            if record is not None:
+                return record
+        return None
+
+    def _first_confident(self, entry: BibEntry, hits: list[dict]) -> CanonicalRecord | None:
         for hit in hits:
             info = hit.get("info", {})
             record = _to_record(info)
