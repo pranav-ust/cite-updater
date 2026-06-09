@@ -24,6 +24,7 @@ class BibEntry:
     venue: str | None
     doi: str | None
     raw: Entry = field(repr=False)
+    is_preprint: bool = False
 
     @classmethod
     def from_entry(cls, entry: Entry) -> "BibEntry":
@@ -37,7 +38,20 @@ class BibEntry:
             venue=get("booktitle") or get("journal") or None,
             doi=get("doi") or None,
             raw=entry,
+            is_preprint=_looks_like_arxiv(get("archiveprefix"), get("eprint"), get("journal"), get("primaryclass")),
         )
+
+
+_ARXIV_ID = re.compile(r"\b\d{4}\.\d{4,5}\b")
+
+
+def _looks_like_arxiv(archiveprefix: str, eprint: str, journal: str, primaryclass: str) -> bool:
+    """True if the entry is an arXiv preprint (archivePrefix/eprint/primaryClass/journal signals)."""
+    if "arxiv" in (archiveprefix or "").lower() or "arxiv" in (journal or "").lower():
+        return True
+    if eprint and _ARXIV_ID.search(eprint):
+        return True
+    return bool(primaryclass and "." in primaryclass)  # e.g. cs.CV, stat.ML
 
 
 _AUTHOR_SPLIT = re.compile(r"\s+and\s+", re.IGNORECASE)

@@ -63,6 +63,7 @@ Example annotated output:
 | `parsing_error` | The bib author field has unparseable junk (`*`, fragments, etc.). |
 | `title_mismatch` | Cited title vs canonical title fuzzy ratio < 0.92. |
 | `venue_mismatch` | Cited venue doesn't match canonical, after expanding common abbreviations (NeurIPS ↔ Neural Information Processing Systems, etc.) and collapsing arXiv synonyms. |
+| `preprint_published` | Entry is an arXiv preprint with no venue, but the matched record (e.g. DBLP) shows it was published somewhere — suggests citing the published venue. No extra lookup; uses the record already matched. |
 
 Year is deliberately not compared — preprint, camera-ready, and reprint years
 diverge legitimately and too often to be a useful signal.

@@ -259,11 +259,20 @@ def _is_abbreviation(a: str, b: str) -> bool:
 
 
 def _compare_venue(entry: BibEntry, record: CanonicalRecord) -> list[Mismatch]:
-    if not entry.venue or not record.venue:
-        return []  # arXiv records, missing fields → skip
-    a = _normalize_venue(entry.venue)
+    if not record.venue:
+        return []  # nothing canonical to compare or suggest
     b = _normalize_venue(record.venue)
-    if not a or not b:
+    if not b:
+        return []
+    if not entry.venue:
+        # Entry has no venue. If it's an arXiv preprint and the matched record
+        # (typically DBLP) names a real published venue, nudge the author to cite
+        # that — no extra lookup, it's already on the record we matched.
+        if entry.is_preprint and not _is_nonselective_venue(b):
+            return [Mismatch("preprint_published", f"published at {record.venue!r}; entry cites the preprint")]
+        return []
+    a = _normalize_venue(entry.venue)
+    if not a:
         return []
     # Asymmetric non-selective-host handling: if the citation names a real venue
     # but the provider only returns a preprint server / institutional repository

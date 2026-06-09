@@ -163,6 +163,11 @@ retries, but doesn't undo the server-side throttle.
   the preprint, a real venue exists) is still flagged as a "cite the actual venue"
   nudge. Suppression is one-directional, so the worst case is a missed flag, never
   a false positive.
+- **`accents_missing`** (`compare.py:_accent_diff`) and **`preprint_published`**
+  (`_compare_venue`). The former surfaces dropped diacritics on a matched author
+  (`Bengio` → `Bengío`); the latter nudges a venue-less arXiv `@misc` entry toward
+  the published venue *already on the matched record* (no extra lookup — that's
+  what the DBLP match gives us; `BibEntry.is_preprint` gates it).
 
 ### Findings — still open / informational
 

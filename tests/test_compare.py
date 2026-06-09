@@ -138,6 +138,29 @@ def test_real_venue_vs_nonselective_host_not_flagged():
         assert all(m.kind != "venue_mismatch" for m in compare(e, r)), record_venue
 
 
+def test_venueless_preprint_gets_published_suggestion():
+    # @misc arXiv entry with no venue; matched DBLP record names the real venue.
+    e = _entry(venue=None, is_preprint=True)
+    r = _record(venue="International Conference on Learning Representations")
+    flags = compare(e, r)
+    assert any(m.kind == "preprint_published" for m in flags)
+    assert any("International Conference" in m.detail for m in flags if m.kind == "preprint_published")
+
+
+def test_venueless_preprint_with_preprint_record_not_flagged():
+    # Record itself is only the preprint (DBLP returned CoRR) → nothing to suggest.
+    e = _entry(venue=None, is_preprint=True)
+    r = _record(venue="arXiv (Cornell University)")
+    assert all(m.kind != "preprint_published" for m in compare(e, r))
+
+
+def test_venueless_non_preprint_not_flagged():
+    # Plain venue-less entry that isn't a preprint → don't nag about venue.
+    e = _entry(venue=None, is_preprint=False)
+    r = _record(venue="International Conference on Learning Representations")
+    assert all(m.kind != "preprint_published" for m in compare(e, r))
+
+
 def test_entry_cites_preprint_server_still_flagged():
     # Reverse direction: the citation uses the preprint server but a real venue
     # exists → keep the "cite the actual venue" nudge.
