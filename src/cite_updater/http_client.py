@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import threading
 import time
 from pathlib import Path
@@ -51,7 +52,15 @@ def build_session(
     adapter = HTTPAdapter(max_retries=retry)
     session.mount("http://", adapter)
     session.mount("https://", adapter)
+
+    # Optional contact email for provider polite pools / authenticated tiers.
+    # Anonymous remains the default when CITE_UPDATER_MAILTO is unset.
+    mailto = os.environ.get("CITE_UPDATER_MAILTO") or None
+    if mailto:
+        user_agent = f"{user_agent} (mailto:{mailto})"
     session.headers["User-Agent"] = user_agent
+    # Stash so providers can also add mailto as a query param.
+    session.cite_updater_mailto = mailto
     return session
 
 

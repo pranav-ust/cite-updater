@@ -37,6 +37,9 @@ class CrossrefProvider:
             "rows": self.max_results,
             "select": "DOI,title,author,issued,container-title,URL",
         }
+        mailto = getattr(self.session, "cite_updater_mailto", None)
+        if mailto:
+            params["mailto"] = mailto
         resp = self.session.get(CROSSREF_API, params=params, timeout=20)
         resp.raise_for_status()
         return resp.json().get("message", {}).get("items", [])

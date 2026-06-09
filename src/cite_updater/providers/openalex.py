@@ -34,6 +34,9 @@ class OpenAlexProvider:
 
     def _fetch(self, title: str) -> list[dict]:
         params = {"search": title, "per-page": self.max_results}
+        mailto = getattr(self.session, "cite_updater_mailto", None)
+        if mailto:
+            params["mailto"] = mailto
         resp = self.session.get(OPENALEX_API, params=params, timeout=20)
         resp.raise_for_status()
         return resp.json().get("results", [])

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 
 from ..bib_io import BibEntry
 from ..http_client import RateLimiter
@@ -36,7 +37,13 @@ class SemanticScholarProvider:
 
     def _fetch(self, title: str) -> list[dict]:
         params = {"query": title, "limit": self.max_results, "fields": S2_FIELDS}
-        resp = self.session.get(S2_API, params=params, timeout=20)
+        # Optional free API key for a substantially higher rate limit; anonymous
+        # otherwise.
+        headers = {}
+        api_key = os.environ.get("S2_API_KEY")
+        if api_key:
+            headers["x-api-key"] = api_key
+        resp = self.session.get(S2_API, params=params, headers=headers, timeout=20)
         resp.raise_for_status()
         return resp.json().get("data", [])
 
