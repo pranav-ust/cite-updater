@@ -97,14 +97,29 @@ def test_arxiv_vs_real_venue_still_flagged():
     assert any(m.kind == "venue_mismatch" for m in compare(e, r))
 
 
-def test_real_venue_vs_provider_arxiv_not_flagged():
-    # Entry already cites the real venue; provider only offers the preprint
-    # (e.g. OpenAlex "arXiv (Cornell University)" for a NIPS/ICLR paper).
-    # That's the provider being unhelpful, not a bad citation → suppress.
-    for entry_venue in ("NIPS", "The Twelfth International Conference on Learning Representations"):
+def test_real_venue_vs_nonselective_host_not_flagged():
+    # Entry already cites the real venue; provider only offers a preprint server
+    # or institutional repository (arXiv, bioRxiv, an institutional "Research
+    # Explorer", SSRN, …). That's the provider being unhelpful → suppress.
+    host_venues = [
+        "arXiv (Cornell University)",
+        "Edinburgh Research Explorer (University of Edinburgh)",
+        "bioRxiv",
+        "SSRN Electronic Journal",
+    ]
+    for record_venue in host_venues:
+        e = _entry(venue="International Conference on Learning Representations")
+        r = _record(venue=record_venue)
+        assert all(m.kind != "venue_mismatch" for m in compare(e, r)), record_venue
+
+
+def test_entry_cites_preprint_server_still_flagged():
+    # Reverse direction: the citation uses the preprint server but a real venue
+    # exists → keep the "cite the actual venue" nudge.
+    for entry_venue in ("ArXiv", "bioRxiv"):
         e = _entry(venue=entry_venue)
-        r = _record(venue="arXiv (Cornell University)")
-        assert all(m.kind != "venue_mismatch" for m in compare(e, r)), entry_venue
+        r = _record(venue="International Conference on Learning Representations")
+        assert any(m.kind == "venue_mismatch" for m in compare(e, r)), entry_venue
 
 
 def test_journal_abbreviations_not_flagged():

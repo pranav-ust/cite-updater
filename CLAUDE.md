@@ -154,20 +154,17 @@ retries, but doesn't undo the server-side throttle.
 - **Adaptive backoff on all five providers** (was DBLP + arXiv only). Folded into
   the shared `http_client.py:RateLimiter.request`; each provider just sets base /
   max / sleep.
-- **Asymmetric arXiv venue suppression (`compare.py:_compare_venue`).** When the
-  citation names a real venue but the provider only returns arXiv (e.g. OpenAlex
-  giving `arXiv (Cornell University)` for a NIPS/ICLR paper), no `venue_mismatch`
-  is raised — the citation is following good practice and the provider is being
-  unhelpful. The reverse (entry cites arXiv, real venue exists) is still flagged
-  as a "cite the actual venue" nudge.
+- **Asymmetric non-selective-host venue suppression (`compare.py:_compare_venue`).**
+  When the citation names a real venue but the provider only returns a preprint
+  server / aggregator / institutional repository (`arXiv (Cornell University)`,
+  `Edinburgh Research Explorer`, bioRxiv, SSRN, Zenodo, ResearchGate, …; see
+  `_NONSELECTIVE_VENUE`), no `venue_mismatch` is raised — the citation is doing
+  the right thing and the provider is being unhelpful. The reverse (entry cites
+  the preprint, a real venue exists) is still flagged as a "cite the actual venue"
+  nudge. Suppression is one-directional, so the worst case is a missed flag, never
+  a false positive.
 
 ### Findings — still open / informational
-
-- **Provider-returned junk venues still slip through** (rare). OpenAlex sometimes
-  returns an institutional repository as the venue (e.g. `Edinburgh Research
-  Explorer (University of Edinburgh)` for an ICLR paper). The arXiv case above is
-  handled; arbitrary repository names are not. Would need to distrust OpenAlex's
-  venue field for repository-like names. Low frequency, left as-is.
 
 - **Most "unmatched" entries are legit, not a bug.** Spot-checking sample 2:
   workshop papers, pre-2010 NLP references, niche math books (Bakry-Gentil-Ledoux

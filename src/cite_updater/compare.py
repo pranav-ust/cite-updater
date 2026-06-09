@@ -171,6 +171,25 @@ _VENUE_PUNCT = re.compile(r"[^\w\s]")
 # don't flag arXiv-vs-arXiv as a venue mismatch. arXiv-vs-real-venue still differs.
 _ARXIV_VENUE = re.compile(r"\barxiv\b|\bcorr\b", re.IGNORECASE)
 
+# "Non-selective" hosts: preprint servers, aggregators, and institutional
+# repositories that providers (mostly OpenAlex/Semantic Scholar) sometimes return
+# as a paper's venue. They don't identify *where a paper was published* — they're
+# just where a copy lives. When a provider returns one of these but the citation
+# names a real venue, the citation is following good practice (cite the published
+# venue); the provider is being unhelpful. We suppress venue_mismatch in that
+# direction. "arxiv" (the normalized form above) is the canonical member.
+_NONSELECTIVE_VENUE = re.compile(
+    r"\barxiv\b|\bbiorxiv\b|\bmedrxiv\b|\bchemrxiv\b|\btechrxiv\b|\bssrn\b"
+    r"|research square|preprints?\.org|\bosf\b|\bzenodo\b"
+    r"|research explorer|institutional repositor|\bresearchgate\b"
+    r"|archives-ouvertes",
+    re.IGNORECASE,
+)
+
+
+def _is_nonselective_venue(normalized: str) -> bool:
+    return bool(_NONSELECTIVE_VENUE.search(normalized))
+
 
 def _normalize_venue(v: str) -> str:
     v = (v or "").lower().strip()
@@ -216,13 +235,14 @@ def _compare_venue(entry: BibEntry, record: CanonicalRecord) -> list[Mismatch]:
     b = _normalize_venue(record.venue)
     if not a or not b:
         return []
-    # Asymmetric arXiv handling: if the citation names a real venue but the
-    # provider only knows the preprint (e.g. OpenAlex returning "arXiv (Cornell
-    # University)" for a NIPS/ICLR paper), that's the provider being unhelpful,
-    # not a bad citation — citing the published venue is good practice. Suppress.
-    # The reverse (entry cites arXiv, a real venue exists) is still flagged: it's
-    # the "cite the actual venue, not the preprint" nudge.
-    if b == "arxiv" and a != "arxiv":
+    # Asymmetric non-selective-host handling: if the citation names a real venue
+    # but the provider only returns a preprint server / institutional repository
+    # (e.g. OpenAlex returning "arXiv (Cornell University)" or "Edinburgh Research
+    # Explorer" for a NIPS/ICLR paper), that's the provider being unhelpful, not a
+    # bad citation — citing the published venue is good practice. Suppress. The
+    # reverse (entry cites the preprint, a real venue exists) is still flagged:
+    # it's the "cite the actual venue, not the preprint" nudge.
+    if _is_nonselective_venue(b) and not _is_nonselective_venue(a):
         return []
     sim = fuzz.partial_ratio(a, b) / 100.0
     if sim >= 0.7 or _is_abbreviation(a, b):
