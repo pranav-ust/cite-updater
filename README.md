@@ -5,7 +5,7 @@ title, or venue disagree with the canonical record. The original `.bib` is never
 modified — `cite-updater` writes a new file with `@comment` suggestions above
 each suspect entry. No LLM, no GPU; rule-based comparison only.
 
-Lookup chain: **DBLP → OpenAlex → CrossRef → arXiv → Semantic Scholar**. The
+Lookup chain: **DBLP → CrossRef → OpenAlex → arXiv → Semantic Scholar**. The
 first provider returning a confident match (title fuzz ≥ 0.85 and ≥ 1 author
 overlap) wins.
 

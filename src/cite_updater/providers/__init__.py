@@ -114,7 +114,13 @@ ALL_PROVIDERS: dict[str, type[Provider]] = {
     "semantic_scholar": SemanticScholarProvider,
 }
 
-DEFAULT_CHAIN = ["dblp", "openalex", "crossref", "arxiv", "semantic_scholar"]
+# CrossRef before OpenAlex: both have broad coverage, but CrossRef's author
+# names are publisher-supplied (given/family) and far cleaner, whereas
+# OpenAlex auto-ingests raw author strings with weak disambiguation and
+# regularly mangles first names (e.g. "Paul S. Bradley" -> "Patricia Bradley").
+# Preferring CrossRef when it has the paper cuts spurious first_name_mismatch
+# flags; OpenAlex still runs for the long tail CrossRef doesn't index.
+DEFAULT_CHAIN = ["dblp", "crossref", "openalex", "arxiv", "semantic_scholar"]
 
 
 def build_chain(names: list[str], session) -> list[Provider]:
