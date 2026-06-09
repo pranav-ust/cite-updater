@@ -56,7 +56,8 @@ Example annotated output:
 
 | Kind | When |
 |------|------|
-| `first_name_mismatch` / `last_name_mismatch` | Same author, name differs (incl. typos, missing accents). |
+| `first_name_mismatch` / `last_name_mismatch` | Same author, name differs (e.g. a typo or a dropped initial). |
+| `accents_missing` | Same author, but the citation dropped diacritics the canonical record carries (e.g. `Bengio` → `Bengío`). Still counts as a match. |
 | `author_not_found` | A cited author has no counterpart in the canonical record. |
 | `author_order_wrong` | All authors match but in a different order. |
 | `parsing_error` | The bib author field has unparseable junk (`*`, fragments, etc.). |

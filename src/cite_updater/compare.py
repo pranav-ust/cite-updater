@@ -14,6 +14,7 @@ from .normalize import (
     normalize_for_comparison,
     parse_authors,
     split_last_name_prefix,
+    strip_accents,
 )
 from .providers import CanonicalRecord
 
@@ -57,13 +58,20 @@ def _compare_authors(entry: BibEntry, record: CanonicalRecord, max_authors: int 
 
     mismatches: list[Mismatch] = []
 
+    # Accent suggestions: matched authors whose canonical form carries diacritics
+    # the citation dropped (e.g. "Bengio" cited, "Bengío" canonical). These still
+    # count as a match — we just surface the missing accents as a suggestion.
+    for i, j in matches:
+        detail = _accent_diff(ref[i], cand[j])
+        if detail:
+            mismatches.append(Mismatch("accents_missing", detail))
+
     # Order check: all matched, but in different relative order.
     if len(matches) == len(ref) and len(ref) == len(cand):
         sorted_by_ref = sorted(matches)
         if any(sorted_by_ref[k][1] < sorted_by_ref[k - 1][1] for k in range(1, len(sorted_by_ref))):
             mismatches.append(Mismatch("author_order_wrong", "authors match but order differs"))
-        if not mismatches:
-            return []
+        return mismatches  # all matched; accent + order findings only (may be empty)
 
     unmatched_ref = [ref[i] for i in range(len(ref)) if i not in matched_ref]
     unmatched_cand = [cand[j] for j in range(len(cand)) if j not in matched_cand]
@@ -84,6 +92,28 @@ def _compare_authors(entry: BibEntry, record: CanonicalRecord, max_authors: int 
             unmatched_cand.remove(other)
 
     return mismatches
+
+
+def _accent_diff(ref_author, cand_author) -> str | None:
+    """If the citation dropped diacritics the canonical record carries, describe it.
+
+    Only fires when the de-accented forms are identical (so it's genuinely the same
+    name) and the canonical side actually has accents the reference lacks. Returns
+    None for case-only differences or when the reference already has the accents.
+    """
+    parts: list[str] = []
+    for field in ("first_name", "last_name"):
+        r = (ref_author[field] or "").strip()
+        c = (cand_author[field] or "").strip()
+        if not r or not c or r == c:
+            continue
+        # Same name modulo accents, canonical carries diacritics, and the
+        # reference is its de-accented form (case preserved → not a case diff).
+        if strip_accents(c) != c and strip_accents(r) == strip_accents(c):
+            parts.append(f"{r} → {c}")
+    if not parts:
+        return None
+    return "missing accents: " + ", ".join(parts)
 
 
 def _authors_equivalent(a, b) -> bool:

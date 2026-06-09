@@ -50,6 +50,31 @@ def test_extra_wrong_author_flagged():
     assert "first_name_mismatch" in kinds
 
 
+def test_missing_accent_surfaced_as_suggestion():
+    # Citation dropped the diacritic the canonical record carries → still a match,
+    # but flagged as accents_missing.
+    e = _entry(authors=["Yoshua Bengio", "Asheesh Vaswani"])
+    r = _record(authors=["Yoshua Bengío", "Asheesh Vaswani"])
+    kinds = [m.kind for m in compare(e, r)]
+    assert "accents_missing" in kinds
+    assert "author_not_found" not in kinds  # still counts as the same author
+    detail = next(m.detail for m in compare(e, r) if m.kind == "accents_missing")
+    assert "Bengio" in detail and "Bengío" in detail
+
+
+def test_accent_present_in_entry_not_flagged():
+    # Reference already has the accents (or richer than canonical) → no suggestion.
+    e = _entry(authors=["Yoshua Bengío"])
+    r = _record(authors=["Yoshua Bengio"])
+    assert all(m.kind != "accents_missing" for m in compare(e, r))
+
+
+def test_case_only_difference_not_treated_as_accent():
+    e = _entry(authors=["yoshua bengio"])
+    r = _record(authors=["Yoshua Bengio"])
+    assert all(m.kind != "accents_missing" for m in compare(e, r))
+
+
 def test_year_is_never_compared():
     # Year differences are intentionally ignored (preprint/reprint drift).
     e = _entry(year=2017)
