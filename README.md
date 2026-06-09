@@ -13,12 +13,6 @@ least one author overlap) wins.
 ## Install
 
 ```bash
-pip install cite-updater          # not yet published — for now, see "From source"
-```
-
-From source:
-
-```bash
 git clone https://github.com/pranav-ust/cite-updater
 cd cite-updater
 pip install -e .
@@ -76,13 +70,6 @@ No LLM, no GPU. The categories come from rule-based comparison only.
 pip install -e .[dev]
 pytest
 ```
-
-## Roadmap
-
-Planned work is tracked in [GitHub Issues](https://github.com/pranav-ust/cite-updater/issues).
-Headline items: arXiv source-bundle ingest (parse the author's original
-`references.bib` straight out of the `.tar.gz`) and an `--apply` mode that
-rewrites entries with canonical values.
 
 ## License
 

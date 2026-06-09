@@ -189,8 +189,12 @@ Tracked in GitHub Issues. Highlights:
 - arXiv source-bundle ingest (parse the author's original `references.bib`/`.bbl`
   from the arXiv source tarball — stronger than any API). Prototype lives in
   `scripts/fetch_arxiv_sources.py`; see above.
-- `--apply` mode that rewrites suspect entries with canonical values.
 
-**Explicitly out of scope:** LLM-based categorisation. This package stays
-rule-based / LLM-free. The research repo (`cite--updater`, double dash) is
-where any LLM work lives.
+**Explicitly out of scope:**
+
+- **Rewriting / auto-fixing entries.** The tool only *suggests* changes via
+  `@comment` blocks; it never edits the original metadata. No `--apply` mode.
+- **Fabrication / hallucinated-reference detection.** This is a citation
+  *corrector*, not a fabrication checker.
+- **LLM-based categorisation.** This package stays rule-based / LLM-free. The
+  research repo (`cite--updater`, double dash) is where any LLM work lives.
